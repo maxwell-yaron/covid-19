@@ -282,7 +282,7 @@ def get_total(data, exclude = []):
 
 def main(argv = sys.argv[1:]):
   parser = argparse.ArgumentParser()
-  parser.add_argument('--savepath',type=str,default='/tmp',help="path to save html dashboard")
+  parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
   args = parser.parse_args(argv)
   tpl = load_template()
   data = get_data()
