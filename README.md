@@ -3,6 +3,8 @@ Static Javascript dashboard to monitor the spread of COVID-19
 
 ## How to use
 
+Click [here](https://maxwell-yaron.github.io/covid-19/docs/) To Access the online dashboard.
+
 ### Getting the dataset.
 Dataset from The Johns Hopkins University Center for System Science and Engineering
 ```
