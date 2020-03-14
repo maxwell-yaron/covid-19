@@ -111,9 +111,22 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://js.arcgis.com/4.14/"></script>
     <script>
+      var selected_data = null;
+      var LOG_SCALE = false;
+      var SLIDER_POS = {{ days - 1 }};
+      function getBubbleSize(cases) {
+        return Math.log(Math.max(...cases.slice(0,SLIDER_POS - 1))+1) * 10;
+      }
+      function updateBubbles(graphics) {
+        graphics.graphics.forEach(function(item, i) {
+          var size = getBubbleSize(item.attributes.confirmed);
+          item.symbol.size = size;
+        });
+      }
       function closeDiv(id, x=true, y=true) {
         var elem = document.getElementById(id);
         var style = elem.style;
+        style.border = 0;
         style.padding = 0;
         if(x) {
           style.width = 0;
@@ -128,8 +141,6 @@
         style.width = "100%";
         style.height = "100%";
       }
-      var selected_data = null;
-      var LOG_SCALE = false;
 
       function getDates(series) {
         dates = [];
@@ -180,7 +191,7 @@
         symbol: {
           type: "simple-marker",
           color: color,  // red
-          size: "{{ point['size'] }}px",
+          size: {{ point['size'] }},
           outline: {
             color: [30, 0, 0 ,0.5], // white
             width: 1
@@ -208,7 +219,20 @@
       });
       view.on("click", function(evt) {
         var pt = evt.screenPoint;
-        view.hitTest(pt).then(getGraphic);
+        view.hitTest(pt)
+          .then(getGraphic);
+      });
+      view.on("drag", function(evt) {
+          closeDiv('popupDiv');
+      });
+      slider.on("thumb-change", function(evt) {
+          SLIDER_POS = evt.value;
+          console.log(evt.value);
+          updateBubbles(graphics);
+      });
+      slider.on("thumb-drag", function(evt) {
+          SLIDER_POS = evt.value;
+          updateBubbles(graphics);
       });
       function getGraphic(r) {
         var graphic = r.results[0].graphic;
@@ -226,6 +250,7 @@
         style.padding="15px";
         style.width = "auto";
         style.height = "auto";
+        style.border = "1px solid black";
         name.innerHTML = data.name;
         confirmed.innerHTML = "Confirmed: " + data.total_confirmed;
         deaths.innerHTML = "Deaths: " + data.total_deaths;
