@@ -16,6 +16,9 @@ SERIES = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{branch}/css
 ignore = ['Province/State','Country/Region','Lat','Long']
 
 def download_daily(days = [1]):
+  """
+  Download daily reports.
+  """
   for day in days:
     date = get_date(day)
     fpath = os.path.join(OUTPUT, date+'.csv')
@@ -25,6 +28,9 @@ def download_daily(days = [1]):
       request.urlretrieve(url, fpath)
 
 def download_series(types = TYPES):
+  """
+  Download time series.
+  """
   for type in types:
     fpath = os.path.join(OUTPUT, type+'.csv')
     url = SERIES.format(branch = BRANCH, type=type)
