@@ -41,7 +41,7 @@
         border: 1px solid black;
       }
       .tools-btn {
-        font-size: 16px;
+        font-size: 18px;
         cursor: pointer;
         z-index: 99;
         position: absolute;
@@ -64,8 +64,7 @@
         width:100%;
         height:70%;
         padding: 5px;
-        top: 50%;
-        transform: translateY(-50%);
+        top: 5%;
       }
 
       .disable {
@@ -105,6 +104,11 @@
         height: 50px;
         width: 100%;
       }
+
+      table, td, tr, th {
+        border: 1px solid #EEEEEE;
+        border-collapse: collapse;
+      }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://js.arcgis.com/4.14/esri/themes/light/main.css">
@@ -113,7 +117,30 @@
     <script>
       var selected_data = null;
       var LOG_SCALE = false;
+      var ENABLE_EXP = false;
+      var ENABLE_LOG = false;
       var SLIDER_POS = {{ days - 1 }};
+      function logisticProjection(terms, n) {
+        var y = [];
+        var max = terms[0];
+        var r = terms[1];
+        var c = terms[2];
+        var o = terms[3];
+        for(var i = 0; i < n; ++i) {
+          y.push(max/(1+Math.exp(-r*(i-c))) + o);
+        }
+        return y;
+      }
+      function exponentialProjection(terms, n) {
+        var y = [];
+        var p0 = terms[0];
+        var r = terms[1];
+        var a = terms[2];
+        for(var i = 0; i < n; ++i) {
+          y.push(p0 *Math.pow((1 + r), (i-a)))
+        }
+        return y;
+      }
       function getBubbleSize(cases) {
         return Math.log(Math.max(...cases.slice(0,SLIDER_POS - 1))+1) * 10;
       }
@@ -208,6 +235,9 @@
           lat: {{ point['lat'] }},
           lon: {{ point['lon'] }},
           old: {{ point['old'] }},
+          exp_terms: {{ point['exp_terms']  }},
+          log_terms: {{ point['log_terms']  }},
+          growth_factor: {{ point['growth'] }},
         },
       }));
       {% endfor %}
@@ -227,7 +257,6 @@
       });
       slider.on("thumb-change", function(evt) {
           SLIDER_POS = evt.value;
-          console.log(evt.value);
           updateBubbles(graphics);
       });
       slider.on("thumb-drag", function(evt) {
@@ -299,6 +328,46 @@
         }
       };
       var traces = [conf, rec, dead];
+      if (ENABLE_EXP) {
+        var project = parseInt(document.getElementById('projection').value)
+        if(data.exp_terms.length == 3) {
+          var y = exponentialProjection(data.exp_terms,data.confirmed.length + project);
+          var x = getDates(y);
+          var exp = {
+            x: x,
+            y: y,
+            mode: 'lines',
+            name: 'Exponential Trend',
+            marker: {
+              color: '#8efaf3',
+            },
+            line: {
+              dash: 'dot',
+            },
+          };
+          traces.push(exp);
+        }
+      }
+      if (ENABLE_LOG) {
+        var project = parseInt(document.getElementById('projection').value)
+        if(data.log_terms.length == 4) {
+          var y = logisticProjection(data.log_terms,data.confirmed.length + project);
+          var x = getDates(y);
+          var log = {
+            x: x,
+            y: y,
+            mode: 'lines',
+            name: 'Logistic Trend',
+            marker: {
+              color: '#bd91ed',
+            },
+            line: {
+              dash: 'dot',
+            },
+          };
+          traces.push(log);
+        }
+      }
       return traces;
     }
     function firstCase(data) {
@@ -309,8 +378,31 @@
       }
       return 0;
     }
+    function updateTable() {
+      var confirmed = selected_data.confirmed;
+      var data_end = confirmed.length - 1;
+      var growth = document.getElementById('growth_factor');
+      var new_cases = document.getElementById('new_cases');
+      new_cases.innerHTML = confirmed[data_end] - confirmed[data_end-1]
+      var g_factor = selected_data.growth_factor;
+      var end = g_factor.length - 1;
+      var today = g_factor[end];
+      var yesterday = g_factor[end-1];
+      var diff = today - yesterday
+      var pct = (diff/yesterday) * 100;
+      growth.innerHTML = `${today.toFixed(3)} - (${pct.toFixed(2)}%)`;
+      // Set color if improved.
+      if (diff < 0 || isNaN(pct)) {
+        growth.style.color = '#00ff00'
+        growth.innerHTML += '&#9660;'
+      } else {
+        growth.innerHTML += '&#9650;'
+        growth.style.color = '#ff0000'
+      }
+    }
     function updatePlot() {
       var data = getPlotData(selected_data);
+      var margin = (data.length > 3 ? data[3].x.length : data[0].x.length);
       var scale = (LOG_SCALE ? 'log' : 'linear');
       var plot_layout = {
         title: "Growth rate for: " + selected_data.name,
@@ -322,7 +414,7 @@
         xaxis: {
           title: "Days",
           automargin: true,
-          range:[firstCase(data[0].y), data[0].x.length],
+          range:[firstCase(data[0].y), margin],
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -334,17 +426,21 @@
       };
       Plotly.newPlot('graph', data, plot_layout, {displaylogo:false});
     }
+    function update() {
+      updatePlot();
+      updateTable();
+    }
     function openPlot() {
       var elem = document.getElementById("plotDiv");
       var style = elem.style;
       style.padding="15px";
       style.width = "75%";
       style.height = "100%";
-      updatePlot();
+      update();
     }
     function toggleLog() {
       LOG_SCALE = !LOG_SCALE;
-      updatePlot();
+      update();
     }
 </script>
 </head>
@@ -357,9 +453,28 @@
     </div>
     <div class="plt-ctn">
       <div id="graph" style="width:100%; height:100%;"></div>
-    </div>
-    <div class="control">
-      <button onclick="toggleLog()">Toggle Log Scale</button>
+      <br>
+      <div class="control">
+        <button onclick="toggleLog()">Toggle Log Scale</button>
+        <input type="number" id="projection" min="0" max="30" value="0" onchange="update()">
+        <input type="checkbox" id="enable_exp" onchange ="ENABLE_EXP=this.checked; update()")>
+        <label for="enable_exp">Enable Exponential Trend</label>
+        <input type="checkbox" id="enable_log" onchange ="ENABLE_LOG=this.checked; update()")>
+        <label for="enable_log">Enable Logistic Trend</label>
+      </div>
+      <br>
+      <center>
+      <table>
+        <tr>
+          <th>New Cases</th>
+          <th>Growth Factor</th>
+        </tr>
+        <tr>
+          <td><span id="new_cases"></span></td>
+          <td><span id="growth_factor"></span></td>
+        </tr>
+      </table>
+      </center>
     </div>
   </div>
   <div class="popup" id="popupDiv">

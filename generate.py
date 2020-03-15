@@ -1,13 +1,46 @@
 #!/usr/bin/env python3
+
 import argparse
 import numpy as np
 import sys
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 from jinja2 import Template
 
 TEMPLATE = "template.tpl"
 TYPES = ['Confirmed','Recovered','Deaths']
+
+# Special case aggregates for unsupplied Countries/Regions
+AGGREGATE = {
+  'World':[0,-130.938346],
+  'Australia':[-24.6483001,133.948055],
+  'US':[38.9153534,-98.7777603]
+}
+
+def logistic_growth(x, maximum, rate, center, offset):
+  return maximum / (1 + np.exp(-rate*(x-center))) + offset;
+
+def exponential_growth(x,initial_pop,r, a):
+  return initial_pop * ((1 + r)**(x-a))
+
+def growth_factor(dataset):
+  """
+  Get the current growth factor for a dataset.
+  dN/dN-1
+
+  params:
+  dataset(list): list of cases by day.
+
+  return(list): growth factor over time.
+  """
+  data = np.array(dataset)
+  d = data[1:] - data[:-1]
+  growth = d[1:]/d[:-1]
+  growth[np.isinf(growth)] = 0
+  growth[np.isnan(growth)] = 0
+  return growth.tolist()
 
 # Need a mapping from code to name to make the data backwards compatible.
 STATES = {
@@ -76,6 +109,13 @@ def parse_dataset(type):
   data = pd.read_csv(path)
   return data
 
+def get_age_data():
+  """
+  Extract age based data.
+  """
+  csv = os.path.join('resources', 'Ages.csv')
+  return pd.read_csv(csv, skiprows=1)
+
 def get_data():
   """
   Get all data from each dataset
@@ -138,7 +178,7 @@ def get_countries(data):
   }
   return cases
 
-def get_points(cases):
+def get_points(cases, ages=None, rates = False):
   """
   Convert case data into points for consumption by Javascript.
 
@@ -156,7 +196,17 @@ def get_points(cases):
     point['lat'] = lat
     point['lon'] = lon
     (point['confirmed'], point['old']) = sanitize_list(list(vals))
+    point['growth'] = growth_factor(point['confirmed'])
     points[name] = point
+    # Populate age data if available.
+    if ages is not None:
+      c = name
+      if c == 'US':
+        c = 'USA'
+      a = ages[ages['country'] == c]
+      point['ages'] = a['age'].dropna().values
+    else:
+      point['ages'] = []
   for (name, lat, lon), row in cases['r'].iterrows():
     if name in points:
       vals = row.values
@@ -167,6 +217,52 @@ def get_points(cases):
       (points[name]['deaths'], a) = sanitize_list(list(vals))
 
   return list(points.values())
+
+def first_non_zero(data):
+  """
+  Return the index before the first non zero element in a list.
+  If the first value is non zero return 0, if all values are non zero return zero.
+
+  params:
+  data(list): List of values.
+
+  return(int): Index before first non zero.
+  """
+  for i in range(len(data)):
+    if data[i] > 0:
+      return max([i-1,0])
+  return 0;
+
+def calculate_trends(points):
+  """
+  Fit data to both an exponential trend and a logistic trend and save data to corresponding point.
+
+  params:
+  points(list): list of points.
+
+  return(None):
+  """
+  print("Calculating Trend Lines",end='', flush=True)
+  for point in points:
+    # Calculate growth rates if enabled.
+    y = point['confirmed']
+    x = range(len(y))
+    try:
+      log_opt, log_cov = curve_fit(logistic_growth, x, y , bounds = ([max(y),0,x[0],0],[1e9,10,x[-1],10]))
+      exp_opt, exp_cov = curve_fit(exponential_growth, x, y, bounds = ([1,0,1],[200,1,100]))
+
+      point['log_terms'] = log_opt.tolist()
+      point['log_cov'] = log_cov.tolist()
+      point['exp_terms'] = exp_opt.tolist()
+      point['exp_cov'] = exp_cov.tolist()
+      print('.',end='', flush=True)
+
+    except:
+      point['log_terms'] = []
+      point['log_cov'] = []
+      point['exp_terms'] = []
+      point['exp_cov'] = []
+  print('Done!')
 
 def get_province_data(dataset):
   """
@@ -179,10 +275,10 @@ def get_province_data(dataset):
   not_usa = dataset[dataset['Country/Region'] != 'US']
   usa = dataset[dataset['Country/Region'] == 'US']
   counties = usa[usa['Province/State'].str.contains(',',na=False)]
-  counties = counties[~counties['Province/State'].str.contains('D.C.', na=False)]
+  counties = counties[~counties['Province/State'].str.contains('D.C.|U.S.', na=False)]
   # Copy county data for later.
   counties_copy = counties.copy()
-  states = usa[~usa['Province/State'].str.contains(',|D.C.',na=False)]
+  states = usa[~usa['Province/State'].str.contains(',|D.C.|U.S.',na=False)]
   # Modify region name so that they reflect the state
   for k,v in counties.iterrows():
     code = v['Province/State'].replace(' ','').split(',')[1]
@@ -197,8 +293,7 @@ def get_province_data(dataset):
 
 def get_country_data(dataset):
   """
-  Get Country/Region data from loaded dataset. This also
-  backports data to maintain US State time series.
+  Get Country/Region data from loaded dataset.
 
   params:
   dataset(pd.Dataframe): Dataset to parse.
@@ -230,29 +325,32 @@ def get_num_days(data):
   """
   return len(data.columns.values) - 4
 
-def get_us_point(data):
+def get_aggregate_point(data, name, coord):
   """
-  Aggregate all us cases to get overall count for US.
+  Get a single point aggregated from other data.
 
   params:
-  data(pd.DataFrame): input dataset
+  data(dict): dict of pd.DataFrames
 
-  returns(point): Data point for Javascript consumption.
+  return(point): Aggregate point.
   """
   sums = {}
-  for k,df in data.items():
-    df.groupby(['Country/Region'])
-    df = df[df['Country/Region'] == 'US']
-    df = df.drop(columns=['Province/State', 'Country/Region', 'Lat','Long'])
+  for k,v in data.items():
+    if name is not 'World':
+      df = v[v['Country/Region'] == name]
+    else:
+      df = v
+    df = df.drop(columns=['Country/Region', 'Province/State', 'Lat','Long'])
     sums[k] = df.sum()
   point = {}
-  point['name'] = 'US'
+  point['name'] = name
   point['size'] = int(np.log(max(sums['Confirmed'].values)+1)) * 10
-  point['lat'] = 38.9153534
-  point['lon'] = -98.7777603
+  point['lat'] = coord[0]
+  point['lon'] = coord[1]
   point['confirmed'],a = sanitize_list(list(sums['Confirmed'].values))
   point['recovered'],a = sanitize_list(list(sums['Recovered'].values))
   point['deaths'],a = sanitize_list(list(sums['Deaths'].values))
+  point['growth'] = growth_factor(point['confirmed'])
   point['old'] = 0
   return point
 
@@ -285,11 +383,18 @@ def main(argv = sys.argv[1:]):
   parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
   args = parser.parse_args(argv)
   tpl = load_template()
+  ages = get_age_data()
   data = get_data()
-  countries = get_points(get_countries(data))
-  countries.append(get_us_point(data))
+  countries = get_points(get_countries(data), ages, True)
   states = get_points(get_provinces(data))
-  html = tpl.render(points=countries+states, days = get_num_days(data['Confirmed']))
+  # Get aggregate points.
+  extra = [get_aggregate_point(data,k,v) for k,v in AGGREGATE.items()]
+
+  #All points.
+  all_points = extra + countries + states
+  # Calculate trends.
+  calculate_trends(all_points)
+  html = tpl.render(points=all_points, days = get_num_days(data['Confirmed']))
   output_file = os.path.join(args.savepath,'index.html')
   save_html(output_file, html)
   cases = get_total(data['Confirmed'])
@@ -297,5 +402,6 @@ def main(argv = sys.argv[1:]):
   print('Total cases: {}'.format(cases))
 
 if __name__ == '__main__':
+  np.seterr(divide='ignore', invalid='ignore')
   main()
 
