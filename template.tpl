@@ -109,6 +109,31 @@
         border: 1px solid #EEEEEE;
         border-collapse: collapse;
       }
+
+      .tab {
+        overflow: hidden;
+        background-color: inherit;
+        padding: 5px;
+      }
+
+      .tab button {
+        background-color: inherit;
+        color: #eeeeee;
+        float: left;
+        border: 1px solid #eeeeee;
+        outline: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        transition: 0.3s;
+      }
+
+      .tab button:hover {
+        background-color: #444444;
+      }
+      
+      .tab button.active {
+        background-color: #333333;
+      }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://js.arcgis.com/4.14/esri/themes/light/main.css">
@@ -120,6 +145,8 @@
       var ENABLE_EXP = false;
       var ENABLE_LOG = false;
       var SLIDER_POS = {{ days - 1 }};
+      var PLOT_TYPE = "TRACE";
+      var all_data = {{ points_dict }};
       function logisticProjection(terms, n) {
         var y = [];
         var max = terms[0];
@@ -140,6 +167,15 @@
           y.push(p0 *Math.pow((1 + r), (i-a)))
         }
         return y;
+      }
+      function setTab(evt, type) {
+        PLOT_TYPE = type;
+        tablinks = document.getElementsByClassName("tablink");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        evt.currentTarget.className += " active";
+        update();
       }
       function getBubbleSize(cases) {
         return Math.log(Math.max(...cases.slice(0,SLIDER_POS - 1))+1) * 10;
@@ -207,40 +243,43 @@
       });
       var graphics = new GraphicsLayer();
       map.add(graphics);
-      {% for point in points %}
-      var color = ({{ point['old'] }} == 0 ? [255,0,0,0.5] : [120,0,0,.5]);
-      graphics.add(new Graphic({
-        geometry: {
-          type:"point",
-          longitude: {{ point['lon'] }}, 
-          latitude: {{ point['lat'] }}, 
-        },
-        symbol: {
-          type: "simple-marker",
-          color: color,  // red
-          size: {{ point['size'] }},
-          outline: {
-            color: [30, 0, 0 ,0.5], // white
-            width: 1
-          }
-        },
-        attributes: {
-          name: "{{ point['name'] }}",
-          total_confirmed: {{ point['confirmed'][-1] }},
-          total_deaths: {{ point['deaths'][-1] }},
-          total_recovered: {{ point['recovered'][-1] }},
-          confirmed: {{ point['confirmed'] }},
-          deaths: {{ point['deaths'] }},
-          recovered: {{ point['recovered'] }},
-          lat: {{ point['lat'] }},
-          lon: {{ point['lon'] }},
-          old: {{ point['old'] }},
-          exp_terms: {{ point['exp_terms']  }},
-          log_terms: {{ point['log_terms']  }},
-          growth_factor: {{ point['growth'] }},
-        },
-      }));
-      {% endfor %}
+      for(var [k,v] of Object.entries(all_data)) {
+        var point = v;
+        var color = (point['old'] == 0 ? [255,0,0,0.5] : [120,0,0,.5]);
+        var visible = (point['old'] > 0 ? false : true)
+        graphics.add(new Graphic({
+          geometry: {
+            type:"point",
+            longitude: point['lon'], 
+            latitude: point['lat'], 
+          },
+          visible: visible,
+          symbol: {
+            type: "simple-marker",
+            color: color,  // red
+            size: point['size'],
+            outline: {
+              color: [30, 0, 0 ,0.5], // white
+              width: 1
+            }
+          },
+          attributes: {
+            name: point['name'],
+            total_confirmed: point['confirmed'][point['confirmed'].length - 1],
+            total_deaths: point['deaths'][point['deaths'].length - 1],
+            total_recovered: point['recovered'][point['recovered'].length - 1],
+            confirmed: point['confirmed'],
+            deaths: point['deaths'],
+            recovered: point['recovered'],
+            lat: point['lat'],
+            lon: point['lon'],
+            old: point['old'],
+            exp_terms: point['exp_terms'],
+            log_terms: point['log_terms'],
+            growth_factor: point['growth'],
+          },
+        }));
+      }
       var view = new MapView({
         container: "viewDiv",
         map: map,
@@ -370,13 +409,23 @@
       }
       return traces;
     }
-    function firstCase(data) {
+    function firstCase(data, thresh = 0) {
       for(i = 0; i < data.length; i++) {
-        if(data[i] > 0) {
+        if(data[i] > thresh) {
           return i;
         }
       }
       return 0;
+    }
+    function hideControls() {
+      var controls = document.getElementsByClassName("control");
+      for(var i = 0; i < controls.length; ++i) {
+        controls[i].style.visibility = "hidden";
+      }
+    }
+    function showControls(div) {
+      var control = document.getElementById(div);
+      control.style.visibility = "visible";
     }
     function updateTable() {
       var confirmed = selected_data.confirmed;
@@ -401,6 +450,7 @@
       }
     }
     function updatePlot() {
+      showControls('trace-control')
       var data = getPlotData(selected_data);
       var margin = (data.length > 3 ? data[3].x.length : data[0].x.length);
       var scale = (LOG_SCALE ? 'log' : 'linear');
@@ -426,8 +476,53 @@
       };
       Plotly.newPlot('graph', data, plot_layout, {displaylogo:false});
     }
+    function updateCompare() {
+      showControls('compare-control')
+      var data = []
+      {% for i in range(2) %}
+        var e = document.getElementById('country-select{{ i }}')
+        var thresh = parseInt(document.getElementById('case_thresh').value)
+        var name = e[e.selectedIndex].text;
+        var country = all_data[name];
+        var f = firstCase(country.confirmed, thresh);
+        var l = country.confirmed.length - 1;
+        var y = country.confirmed.slice(f,l);
+        var d = {
+          y: y,
+          mode: 'lines+markers',
+          name: name,
+        };
+        data.push(d);
+      {% endfor %}
+      var scale = (LOG_SCALE ? 'log' : 'linear');
+      var plot_layout = {
+        title: "Growth Comparison",
+        yaxis: {
+          type: scale,
+          title: "Cases",
+          automargin: true,
+        },
+        xaxis: {
+          title: "Days",
+          automargin: true,
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: {
+          family: 'Times New Roman, Times, serif',
+          size: 12,
+          color: '#EEEEEE'
+        },
+      };
+      Plotly.newPlot('graph', data, plot_layout, {displaylogo:false});
+    }
     function update() {
-      updatePlot();
+      hideControls();
+      if(PLOT_TYPE == "TRACE") {
+        updatePlot();
+      } else if(PLOT_TYPE == "COMPARE") {
+        updateCompare();
+      }
       updateTable();
     }
     function openPlot() {
@@ -442,6 +537,17 @@
       LOG_SCALE = !LOG_SCALE;
       update();
     }
+    function setSelectValues(value) {
+      {% for i in range(2) %}
+        var el = document.getElementById("country-select{{ i }}");
+        for (var i = 0; i < el.options.length; i++) {
+          if (el.options[i].text === value) {
+            el.selectedIndex = i;
+            break;
+          }
+        }
+      {% endfor %}
+    }
 </script>
 </head>
 <body>
@@ -454,13 +560,30 @@
     <div class="plt-ctn">
       <div id="graph" style="width:100%; height:100%;"></div>
       <br>
-      <div class="control">
+      <div class="tab">
+        <button class="tablink" id='default-tab' onclick="setTab(event, 'TRACE')">Trends</button>
+        <button class="tablink" onclick="setTab(event, 'AGE')">Ages</button>
+        <button class="tablink" onclick="setSelectValues(selected_data.name);setTab(event, 'COMPARE')">Compare</button>
+      </div>
+      <div class="control" id="trace-control">
         <button onclick="toggleLog()">Toggle Log Scale</button>
         <input type="number" id="projection" min="0" max="30" value="0" onchange="update()">
         <input type="checkbox" id="enable_exp" onchange ="ENABLE_EXP=this.checked; update()")>
         <label for="enable_exp">Enable Exponential Trend</label>
         <input type="checkbox" id="enable_log" onchange ="ENABLE_LOG=this.checked; update()")>
         <label for="enable_log">Enable Logistic Trend</label>
+      </div>
+      <div class="control" id="compare-control">
+        <button onclick="toggleLog()">Toggle Log Scale</button>
+        {% for i in range(2) %}
+          <select id="country-select{{ i }}" onchange="update()">
+            {% for k,v in points_dict.items() %}
+              <option value="{{ k }}">{{ k }}</option>
+            {% endfor %}
+          </select>
+        {% endfor %}
+        <span>Starting number of cases:</span>
+        <input type="number" id="case_thresh" min="0" max="500" value="100" onchange="update()">
       </div>
       <br>
       <center>
@@ -499,5 +622,10 @@
     </div>
   </div>
   <div class="disable" id="disableMap"></div>
+  <script>
+    // Set default active tab.
+    var default_tab = document.getElementById("default-tab");
+    default_tab.className += " active";
+  </script>
 </body>
 </html>

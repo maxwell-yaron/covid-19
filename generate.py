@@ -204,7 +204,8 @@ def get_points(cases, ages=None, rates = False):
       if c == 'US':
         c = 'USA'
       a = ages[ages['country'] == c]
-      point['ages'] = a['age'].dropna().values
+      #point['ages'] = a['age'].dropna().values
+      point['ages'] = []
     else:
       point['ages'] = []
   for (name, lat, lon), row in cases['r'].iterrows():
@@ -354,6 +355,19 @@ def get_aggregate_point(data, name, coord):
   point['old'] = 0
   return point
 
+def point_list_to_dict(points):
+  """
+  Convert list of points to dict of points with name as key.
+  params:
+  points(list): list of points.
+
+  return(dict): dict of points.
+  """
+  d = {}
+  for point in points:
+    d[point['name']] = point
+  return d
+
 def get_total(data, exclude = []):
   """
   Get the total for all entries with exclusions.
@@ -391,10 +405,11 @@ def main(argv = sys.argv[1:]):
   extra = [get_aggregate_point(data,k,v) for k,v in AGGREGATE.items()]
 
   #All points.
-  all_points = extra + countries + states
+  all_points = countries + states + extra
   # Calculate trends.
   calculate_trends(all_points)
-  html = tpl.render(points=all_points, days = get_num_days(data['Confirmed']))
+  points_dict = point_list_to_dict(all_points)
+  html = tpl.render(points_dict=points_dict, days = get_num_days(data['Confirmed']))
   output_file = os.path.join(args.savepath,'index.html')
   save_html(output_file, html)
   cases = get_total(data['Confirmed'])
