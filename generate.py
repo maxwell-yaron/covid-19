@@ -16,7 +16,8 @@ TYPES = ['Confirmed','Recovered','Deaths']
 AGGREGATE = {
   'World':[0,-130.938346],
   'Australia':[-24.6483001,133.948055],
-  'US':[38.9153534,-98.7777603]
+  'US':[38.9153534,-98.7777603],
+  'China':[35.1378314,96.9347353],
 }
 
 def logistic_growth(x, maximum, rate, center, offset):
@@ -200,11 +201,8 @@ def get_points(cases, ages=None, rates = False):
     points[name] = point
     # Populate age data if available.
     if ages is not None:
-      c = name
-      if c == 'US':
-        c = 'USA'
-      a = ages[ages['country'] == c]
-      point['ages'] = a['age'].dropna().values
+      a = ages[ages['country'] == name]
+      point['ages'] = a['age'].dropna().values.tolist()
     else:
       point['ages'] = []
   for (name, lat, lon), row in cases['r'].iterrows():
@@ -215,6 +213,11 @@ def get_points(cases, ages=None, rates = False):
     if name in points:
       vals = row.values
       (points[name]['deaths'], a) = sanitize_list(list(vals))
+      if ages is not None:
+        a = ages[ages['country'] == name]
+        a=a[a['death'].fillna('0') != '0']
+        died =  a['age'].dropna().values.tolist()
+        points[name]['ages_died'] = died
 
   return list(points.values())
 
@@ -325,7 +328,7 @@ def get_num_days(data):
   """
   return len(data.columns.values) - 4
 
-def get_aggregate_point(data, name, coord):
+def get_aggregate_point(data, name, coord, ages = None):
   """
   Get a single point aggregated from other data.
 
@@ -352,7 +355,34 @@ def get_aggregate_point(data, name, coord):
   point['deaths'],a = sanitize_list(list(sums['Deaths'].values))
   point['growth'] = growth_factor(point['confirmed'])
   point['old'] = 0
+  if ages is not None:
+    if name is not 'World':
+      if name == 'US':
+        name = 'USA'
+      df = ages[ages["country"] == name]
+    else:
+      df = ages
+    # All cases.
+    point['ages'] = df['age'].dropna().values.tolist();
+    dead = df[df['death'].fillna('0') != '0']
+    point['ages_died'] = dead['age'].dropna().values.tolist();
+  else:
+    point['ages'] = []
+    point['ages_died'] = []
   return point
+
+def point_list_to_dict(points):
+  """
+  Convert list of points to dict of points with name as key.
+  params:
+  points(list): list of points.
+
+  return(dict): dict of points.
+  """
+  d = {}
+  for point in points:
+    d[point['name']] = point
+  return d
 
 def get_total(data, exclude = []):
   """
@@ -388,13 +418,14 @@ def main(argv = sys.argv[1:]):
   countries = get_points(get_countries(data), ages, True)
   states = get_points(get_provinces(data))
   # Get aggregate points.
-  extra = [get_aggregate_point(data,k,v) for k,v in AGGREGATE.items()]
+  extra = [get_aggregate_point(data,k,v,ages) for k,v in AGGREGATE.items()]
 
   #All points.
-  all_points = extra + countries + states
+  all_points = countries + states + extra
   # Calculate trends.
   calculate_trends(all_points)
-  html = tpl.render(points=all_points, days = get_num_days(data['Confirmed']))
+  points_dict = point_list_to_dict(all_points)
+  html = tpl.render(points_dict=points_dict, days = get_num_days(data['Confirmed']))
   output_file = os.path.join(args.savepath,'index.html')
   save_html(output_file, html)
   cases = get_total(data['Confirmed'])
