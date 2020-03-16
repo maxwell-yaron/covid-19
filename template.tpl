@@ -22,7 +22,7 @@
       .plot-container {
         top: 0;
         left: 0;
-        z-index:99;
+        z-index:98;
         background-color: #393e46;
         overflow: hidden;
         position: absolute;
@@ -85,7 +85,7 @@
       .warning {
         position: absolute;
         overflow: hidden;
-        z-index: 1;
+        z-index: 99;
         top: 0;
         left: 0;
         opacity: 0.5;
@@ -167,6 +167,13 @@
           y.push(p0 *Math.pow((1 + r), (i-a)))
         }
         return y;
+      }
+      function openWarningGeneric(msg) {
+        var elem = document.getElementById("warningDiv");
+        var text = document.getElementById("warning-text");
+        var style = elem.style;
+        style.height = "20px";
+        text.innerHTML = msg;
       }
       function setTab(evt, type) {
         PLOT_TYPE = type;
@@ -274,6 +281,8 @@
             lat: point['lat'],
             lon: point['lon'],
             old: point['old'],
+            ages: point['ages'],
+            ages_died: point['ages_died'],
             exp_terms: point['exp_terms'],
             log_terms: point['log_terms'],
             growth_factor: point['growth'],
@@ -331,11 +340,8 @@
         }
       }
       function openWarning(name, old) {
-        var elem = document.getElementById("warningDiv");
-        var text = document.getElementById("warning-text");
-        var style = elem.style;
-        style.height = "20px";
-        text.innerHTML = "WARNING! Data for " + name + " has not been updated for " + old + " days. Numbers for this province/state are likely incorrect."
+        var msg = "WARNING! Data for " + name + " has not been updated for " + old + " days. Numbers for this province/state are likely incorrect.";
+        openWarningGeneric(msg);
       }
     });
     function getPlotData(data) {
@@ -476,6 +482,45 @@
       };
       Plotly.newPlot('graph', data, plot_layout, {displaylogo:false});
     }
+    function updateHistogram() {
+      var conf = {
+        x: selected_data.ages,
+        type: 'histogram',
+        name: 'Confirmed',
+        xbins: {
+          size: 10,
+        },
+      };
+      var died = {
+        x: selected_data.ages_died,
+        type: 'histogram',
+        name: 'Died',
+        xbins: {
+          size: 10,
+        },
+      };
+      console.log(selected_data.ages_died);
+      var plot_layout = {
+        title: "Age distribution for: " + selected_data.name,
+        yaxis: {
+          title: "Cases",
+          automargin: true,
+        },
+        xaxis: {
+          title: "Days",
+          automargin: true,
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: {
+          family: 'Times New Roman, Times, serif',
+          size: 12,
+          color: '#EEEEEE'
+        },
+      };
+      Plotly.newPlot('graph', [conf,died], plot_layout, {displaylogo:false});
+      openWarningGeneric("Age data is severely limited and is likely biased.");
+    }
     function updateCompare() {
       showControls('compare-control')
       var data = []
@@ -522,6 +567,8 @@
         updatePlot();
       } else if(PLOT_TYPE == "COMPARE") {
         updateCompare();
+      } else if(PLOT_TYPE == "HIST") {
+        updateHistogram();
       }
       updateTable();
     }
@@ -562,7 +609,7 @@
       <br>
       <div class="tab">
         <button class="tablink" id='default-tab' onclick="setTab(event, 'TRACE')">Trends</button>
-        <button class="tablink" onclick="setTab(event, 'AGE')">Ages</button>
+        <button class="tablink" onclick="setTab(event, 'HIST')">Ages</button>
         <button class="tablink" onclick="setSelectValues(selected_data.name);setTab(event, 'COMPARE')">Compare</button>
       </div>
       <div class="control" id="trace-control">
