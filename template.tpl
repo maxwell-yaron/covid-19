@@ -265,7 +265,7 @@
         rangeLabelsVisible: true
       });
       var map = new Map({
-        basemap: "national-geographic",
+        basemap: "osm",
       });
       var graphics = new GraphicsLayer();
       map.add(graphics);
