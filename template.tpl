@@ -12,6 +12,7 @@
         width: 100%;
         font-family: "Lato", sans-serif;
         color: #EEEEEE;
+        overflow: hidden;
       }
       #viewDiv {
         margin:0;

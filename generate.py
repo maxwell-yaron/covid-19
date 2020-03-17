@@ -251,7 +251,7 @@ def calculate_trends(points):
     y = point['confirmed']
     x = range(len(y))
     try:
-      log_opt, log_cov = curve_fit(logistic_growth, x, y , bounds = ([max(y),0,x[0],0],[1e9,10,x[-1] * 1.2,len(x)]))
+      log_opt, log_cov = curve_fit(logistic_growth, x, y , bounds = ([max(y),0,x[0],0],[1e9,10,x[-1] * 1.2,10]))
       exp_opt, exp_cov = curve_fit(exponential_growth, x, y, bounds = ([1,0,1],[200,1,100]))
 
       point['log_terms'] = log_opt.tolist()
@@ -411,6 +411,9 @@ def get_total(data, exclude = []):
 def main(argv = sys.argv[1:]):
   parser = argparse.ArgumentParser()
   parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
+  parser.add_argument('--trends',dest='trends', action='store_true', help="enable trend calculation")
+  parser.add_argument('--notrends',dest='trends', action='store_false', help="enable trend calculation")
+  parser.set_defaults(trends=True)
   args = parser.parse_args(argv)
   tpl = load_template()
   ages = get_age_data()
@@ -423,7 +426,8 @@ def main(argv = sys.argv[1:]):
   #All points.
   all_points = countries + states + extra
   # Calculate trends.
-  calculate_trends(all_points)
+  if args.trends:
+    calculate_trends(all_points)
   points_dict = point_list_to_dict(all_points)
   html = tpl.render(points_dict=points_dict, days = get_num_days(data['Confirmed']))
   output_file = os.path.join(args.savepath,'index.html')

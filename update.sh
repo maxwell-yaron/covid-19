@@ -4,7 +4,7 @@
 
 ./generate.py
 
-change=$(git diff)
+change=$(git diff | wc -l)
 
 if [[ $change -ne 0 ]]
 then
