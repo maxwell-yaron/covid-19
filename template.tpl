@@ -64,7 +64,7 @@
         width:100%;
         height:70%;
         padding: 5px;
-        top: 5%;
+        top: 1%;
       }
 
       .disable {
@@ -108,6 +108,7 @@
       table, td, tr, th {
         border: 1px solid #EEEEEE;
         border-collapse: collapse;
+        padding 1px;
       }
 
       .tab {
@@ -134,11 +135,18 @@
       .tab button.active {
         background-color: #333333;
       }
+
+      .equation {
+        font-size: 12px;
+      }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://js.arcgis.com/4.14/esri/themes/light/main.css">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://js.arcgis.com/4.14/"></script>
+    <script type="text/javascript" async
+      src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+    </script>
     <script>
       var selected_data = null;
       var LOG_SCALE = false;
@@ -168,6 +176,15 @@
         }
         return y;
       }
+      function log_x(base, val) {
+        return Math.log(val) / Math.log(base);
+      }
+      function daysToDouble(terms, c) {
+        var curr = log_x(1+terms[1], c/terms[0]) + terms[2];
+        var doub = log_x(1+terms[1], (c*2)/terms[0]) + terms[2];
+        return doub - curr;
+      }
+
       function openWarningGeneric(msg) {
         var elem = document.getElementById("warningDiv");
         var text = document.getElementById("warning-text");
@@ -376,6 +393,7 @@
       if (ENABLE_EXP) {
         var project = parseInt(document.getElementById('projection').value)
         if(data.exp_terms.length == 3) {
+          console.log(data.exp_terms);
           var y = exponentialProjection(data.exp_terms,data.confirmed.length + project);
           var x = getDates(y);
           var exp = {
@@ -447,13 +465,31 @@
       var pct = (diff/yesterday) * 100;
       growth.innerHTML = `${today.toFixed(3)} - (${pct.toFixed(2)}%)`;
       // Set color if improved.
-      if (diff < 0 || isNaN(pct)) {
+      if (today < 1) {
         growth.style.color = '#00ff00'
+      } else {
+        growth.style.color = '#ff0000'
+      }
+      if (diff < 0) {
         growth.innerHTML += '&#9660;'
       } else {
         growth.innerHTML += '&#9650;'
-        growth.style.color = '#ff0000'
       }
+      var exp_terms = selected_data['exp_terms'];
+      var exp_td = document.getElementById('exp_terms');
+      var p0 = exp_terms[0].toFixed(2);
+      var r = exp_terms[1].toFixed(2);
+      var x0 = exp_terms[2].toFixed(2);
+      exp_td.innerHTML=`P0=${p0}, r=${r}, x0=${x0}`;
+      var log_terms = selected_data['log_terms'];
+      var log_td = document.getElementById('log_terms');
+      var l = log_terms[0].toFixed(2);
+      var r = log_terms[1].toFixed(2);
+      var xi = log_terms[2].toFixed(2);
+      var b = log_terms[3].toFixed(2);
+      log_td.innerHTML=`L=${l}, r=${r}, xi=${xi}, b=${b}`;
+      var d2d = document.getElementById('d2d');
+      d2d.innerHTML = daysToDouble(exp_terms, selected_data.confirmed[selected_data.confirmed.length-1]).toFixed(3);
     }
     function updatePlot() {
       showControls('trace-control')
@@ -637,11 +673,17 @@
       <table>
         <tr>
           <th>New Cases</th>
-          <th>Growth Factor</th>
+          <th>Growth Factor<span class="equation">$${\frac{\Delta N_d}{\Delta N_{d-1}}}$$</span></th>
+          <th>Exponential Growth<span class="equation">$${f(x)=P_0(1+r)^{x-x_0}}$$</span></th>
+          <th>Logistic Growth<span class="equation">$${f(x)=\frac{L}{1+e^{-r(x-x_i)}}+b}$$</span></th>
+          <th>Days to Double</th>
         </tr>
         <tr>
-          <td><span id="new_cases"></span></td>
-          <td><span id="growth_factor"></span></td>
+          <td align="center"><span id="new_cases"></span></td>
+          <td align="center"><span id="growth_factor"></span></td>
+          <td align="center"><span id="exp_terms"></span></td>
+          <td align="center"><span id="log_terms"></span></td>
+          <td align="center"><span id="d2d"></span></td>
         </tr>
       </table>
       </center>

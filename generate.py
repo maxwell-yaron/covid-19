@@ -251,7 +251,7 @@ def calculate_trends(points):
     y = point['confirmed']
     x = range(len(y))
     try:
-      log_opt, log_cov = curve_fit(logistic_growth, x, y , bounds = ([max(y),0,x[0],0],[1e9,10,x[-1],10]))
+      log_opt, log_cov = curve_fit(logistic_growth, x, y , bounds = ([max(y),0,x[0],0],[1e9,10,x[-1] * 1.2,len(x)]))
       exp_opt, exp_cov = curve_fit(exponential_growth, x, y, bounds = ([1,0,1],[200,1,100]))
 
       point['log_terms'] = log_opt.tolist()
