@@ -63,9 +63,9 @@
         margin: 0;
         position: absolute;
         width:100%;
-        height:70%;
-        padding: 5px;
-        top: 1%;
+        height:65%;
+        padding: 1px;
+        top: 0;
       }
 
       .disable {
@@ -110,6 +110,7 @@
         border: 1px solid #EEEEEE;
         border-collapse: collapse;
         padding 1px;
+        font-size: 12px;
       }
 
       .tab {
@@ -138,7 +139,7 @@
       }
 
       .equation {
-        font-size: 12px;
+        font-size: 11px;
       }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -665,7 +666,6 @@
     </div>
     <div class="plt-ctn">
       <div id="graph" style="width:100%; height:100%;"></div>
-      <br>
       <div class="tab">
         <button class="tablink" id='default-tab' onclick="setTab(event, 'TRACE')">Trends</button>
         <button class="tablink" onclick="setTab(event, 'HIST')">Ages</button>
@@ -2533,6 +2533,7 @@
         <span>Starting number of cases:</span>
         <input type="number" id="case_thresh" min="0" max="500" value="100" onchange="update()">
       </div>
+      <br>
       <br>
       <center>
       <table>
