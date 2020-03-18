@@ -265,7 +265,7 @@
         rangeLabelsVisible: true
       });
       var map = new Map({
-        basemap: "osm",
+        basemap: "gray-vector",
       });
       var graphics = new GraphicsLayer();
       map.add(graphics);
