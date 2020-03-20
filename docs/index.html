@@ -312,7 +312,7 @@
         container: "viewDiv",
         map: map,
         center: [-98.5795, 39.828],
-        zoom: 5,
+        zoom: 4,
       });
       view.on("click", function(evt) {
         var pt = evt.screenPoint;
