@@ -332,7 +332,11 @@
       });
       function getGraphic(r) {
         var graphic = r.results[0].graphic;
-        openPopup(r.screenPoint,graphic.attributes);
+        if(graphic.attributes.name !== undefined) {
+          openPopup(r.screenPoint,graphic.attributes);
+        } else {
+          closeDiv('popupDiv');
+        }
       }
       function openPopup(pt, data) {
         var elem = document.getElementById("popupDiv");
