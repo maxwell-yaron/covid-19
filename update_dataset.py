@@ -6,6 +6,8 @@ import requests
 from urllib import request
 import pandas as pd
 import matplotlib.pyplot as plt
+from bs4 import BeautifulSoup
+import json
 import re
 
 TYPES = ['Confirmed','Recovered','Deaths']
@@ -51,9 +53,31 @@ def download_series(types = TYPES):
     print(url)
     request.urlretrieve(url, fpath)
 
+def download_counties(outpath):
+  URL = 'https://topic.newsbreak.com/covid-19.html'
+  r = requests.get(URL)
+  html = BeautifulSoup(r.text,features='html.parser')
+  data = html.body.find('script', attrs={'id':'__NEXT_DATA__'}).text
+  j = json.loads(data)
+  states = j['props']['pageProps']['data']['us_stats']
+  output = {}
+  for s in states:
+    name = s['tl']
+    counties = s['counties']
+    county_stats = []
+    for c in counties:
+      county_stats.append({'name':c['nm'], 'c':c['f'],'d':c['d']})
+    if len(county_stats):
+      output[name] = county_stats
+  outfile = os.path.join(outpath,'us_counties.json')
+  print(outfile)
+  with open(outfile, 'w') as f:
+    json.dump(output, f)
+
 def main():
   os.makedirs(OUTPUT, exist_ok=True)
   download_series()
+  download_counties(OUTPUT)
   download_google_sheet(AGE_SHEET, AGE_GID, OUTPUT, 'Ages.csv')
 
 if __name__ == '__main__':

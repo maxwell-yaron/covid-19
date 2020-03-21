@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import numpy as np
 import sys
 import os
@@ -408,6 +409,21 @@ def get_total(data, exclude = []):
     total+=max((list(row.values)[4:]))
   return total
 
+def fill_county_data(l):
+  path = os.path.join('resources', 'us_counties.json')
+  with open(path, 'r') as f:
+    j = json.loads(f.read())
+  for k in list(j.keys()):
+    try:
+      j[STATES[k]] = j.pop(k)
+    except:
+      pass
+  for i in l:
+    try:
+      i['counties'] = j[i['name']]
+    except:
+      i['counties'] = []
+
 def main(argv = sys.argv[1:]):
   parser = argparse.ArgumentParser()
   parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
@@ -425,6 +441,7 @@ def main(argv = sys.argv[1:]):
 
   #All points.
   all_points = countries + states + extra
+  fill_county_data(all_points)
   # Calculate trends.
   if args.trends:
     calculate_trends(all_points)
