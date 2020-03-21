@@ -329,6 +329,7 @@
             log_terms: point['log_terms'],
             growth_factor: point['growth'],
             counties: point['counties'],
+            population: point['population'],
           },
         }));
       }
@@ -368,6 +369,7 @@
         var confirmed = document.getElementById("popup-confirmed");
         var deaths = document.getElementById("popup-deaths");
         var recovered = document.getElementById("popup-recovered");
+        var population = document.getElementById("popup-population");
         var style = elem.style;
         style.left = pt.x;
         style.top = pt.y;
@@ -379,6 +381,7 @@
         confirmed.innerHTML = "Confirmed: " + data.total_confirmed;
         deaths.innerHTML = "Deaths: " + data.total_deaths;
         recovered.innerHTML = "Recovered: " + data.total_recovered;
+        population.innerHTML = "Pop: " + data.population;
         selected_data = data;
         if(data.old > 0) {
           openWarning(data.name, data.old);
@@ -527,7 +530,7 @@
       var margin = (data.length > 3 ? data[3].x.length : data[0].x.length);
       var scale = (LOG_SCALE ? 'log' : 'linear');
       var plot_layout = {
-        title: "Growth rate for: " + selected_data.name,
+title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_data.population + ")",
         yaxis: {
           type: scale,
           title: "Cases",
@@ -768,6 +771,8 @@
     <span id="popup-deaths"></span>
     <br>
     <span id="popup-recovered"></span>
+    <br>
+    <span id="popup-population"></span>
   </div>
   <div class="warning" id="warningDiv">
     <center><span style="font-weight:bold" id="warning-text"></span></center>

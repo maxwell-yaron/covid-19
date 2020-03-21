@@ -424,6 +424,18 @@ def fill_county_data(l):
     except:
       i['counties'] = []
 
+def fill_populations(l):
+  path = os.path.join('resources', 'populations.json')
+  with open(path, 'r') as f:
+    j = json.loads(f.read())
+  for i in l:
+    name = i['name']
+    try:
+      pop = j[name]
+    except:
+      pop = 'N/A'
+    i['population'] = pop
+
 def main(argv = sys.argv[1:]):
   parser = argparse.ArgumentParser()
   parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
@@ -442,6 +454,7 @@ def main(argv = sys.argv[1:]):
   #All points.
   all_points = countries + states + extra
   fill_county_data(all_points)
+  fill_populations(all_points)
   # Calculate trends.
   if args.trends:
     calculate_trends(all_points)

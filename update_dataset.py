@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta
+from population import get_populations
 import os
 import requests
 from urllib import request
@@ -74,11 +75,19 @@ def download_counties(outpath):
   with open(outfile, 'w') as f:
     json.dump(output, f)
 
+def download_populations():
+  outfile = os.path.join(OUTPUT,'populations.json')
+  d = get_populations()
+  with open(outfile, 'w') as f:
+    json.dump(d,f)
+  print(outfile)
+
 def main():
   os.makedirs(OUTPUT, exist_ok=True)
   download_series()
   download_counties(OUTPUT)
   download_google_sheet(AGE_SHEET, AGE_GID, OUTPUT, 'Ages.csv')
+  download_populations()
 
 if __name__ == '__main__':
   main()
