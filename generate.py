@@ -409,21 +409,6 @@ def get_total(data, exclude = []):
     total+=max((list(row.values)[4:]))
   return total
 
-def fill_county_data(l):
-  path = os.path.join('resources', 'us_counties.json')
-  with open(path, 'r') as f:
-    j = json.loads(f.read())
-  for k in list(j.keys()):
-    try:
-      j[STATES[k]] = j.pop(k)
-    except:
-      pass
-  for i in l:
-    try:
-      i['counties'] = j[i['name']]
-    except:
-      i['counties'] = []
-
 def fill_populations(l):
   path = os.path.join('resources', 'populations.json')
   with open(path, 'r') as f:
@@ -453,7 +438,6 @@ def main(argv = sys.argv[1:]):
 
   #All points.
   all_points = countries + states + extra
-  fill_county_data(all_points)
   fill_populations(all_points)
   # Calculate trends.
   if args.trends:

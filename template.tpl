@@ -30,18 +30,6 @@
         height: 100%;
       }
 
-      .counties {
-        top: 0;
-        right: 0;
-        width: 0;
-        transition: 0.3s;
-        z-index:97;
-        background-color: #393e46;
-        overflow-y: scroll;
-        position: absolute;
-        height: 100%;
-      }
-
       .popup {
         top: 0;
         left: 0;
@@ -124,16 +112,6 @@
         border-collapse: collapse;
         padding 1px;
         font-size: 12px;
-      }
-
-      #county_table {
-        margin-right: 20px;
-        margin-left: auto;
-        margin-top: 20px;
-      }
-
-      #county_table td {
-        font-size: 16px;
       }
 
       .tab {
@@ -328,7 +306,6 @@
             exp_terms: point['exp_terms'],
             log_terms: point['log_terms'],
             growth_factor: point['growth'],
-            counties: point['counties'],
             population: point['population'],
           },
         }));
@@ -554,40 +531,6 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
       };
       Plotly.newPlot('graph', data, plot_layout, {displaylogo:false});
     }
-    function updateCounties() {
-      var elem = document.getElementById("countyDiv");
-      var counties = selected_data.counties;
-      if(counties.length > 0) {
-        var style = elem.style;
-        style.padding="0px";
-        style.width = "25%";
-        style.height = "100%";
-        var tbl = document.getElementById("county_table");
-        tbl.innerHTML = "";
-        // Fill table data.
-        for (var i = 0; i < counties.length; ++i) {
-          var idx = counties.length - 1 - i;
-          var county = counties[idx];
-          var row = tbl.insertRow(0);
-          var n = row.insertCell(0);
-          var c = row.insertCell(1);
-          var d = row.insertCell(2);
-          n.innerHTML = county.name;
-          c.innerHTML = county.c;
-          d.innerHTML = county.d;
-        }
-        var header = tbl.createTHead();
-        var row = header.insertRow(0);
-        var n = row.insertCell(0);
-        var c = row.insertCell(1);
-        var d = row.insertCell(2);
-        n.innerHTML = "<b>County</b>";
-        c.innerHTML = "<b>Confirmed</b>";
-        d.innerHTML = "<b>Death</b>";
-      } else {
-        closeDiv("countyDiv", true, false);
-      }
-    }
     function updateHistogram() {
       var conf = {
         x: selected_data.ages,
@@ -669,7 +612,6 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
     }
     function update() {
       hideControls();
-      updateCounties();
       if(PLOT_TYPE == "TRACE") {
         updatePlot();
       } else if(PLOT_TYPE == "COMPARE") {
@@ -709,7 +651,7 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
   <div id="sliderDiv"></div>
   <div class="plot-container" id="plotDiv">
     <div>
-      <a class='tools-btn' onclick="closeDiv('plotDiv',true, false); closeDiv('disableMap'); closeDiv('countyDiv', true, false)" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
+      <a class='tools-btn' onclick="closeDiv('plotDiv',true, false); closeDiv('disableMap')" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
     </div>
     <div class="plt-ctn">
       <div id="graph" style="width:100%; height:100%;"></div>
@@ -784,10 +726,6 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
     <div>
       <a class='tools-btn' onclick="closeDiv('warningDiv',false,true)" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
     </div>
-  </div>
-  <div class="counties" id="countyDiv">
-    <table id="county_table">
-    </table>
   </div>
   <div class="disable" id="disableMap"></div>
   <script>
