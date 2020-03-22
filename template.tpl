@@ -579,7 +579,7 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
         var name = e[e.selectedIndex].text;
         var country = all_data[name];
         var f = firstCase(country.confirmed, thresh);
-        var l = country.confirmed.length - 1;
+        var l = country.confirmed.length;
         var y = country.confirmed.slice(f,l);
         var d = {
           y: y,
