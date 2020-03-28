@@ -5,9 +5,11 @@ from population import get_populations
 import os
 import requests
 from urllib import request
+from io import BytesIO, StringIO
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
+import numpy as np
 import re
 
 TYPES = ['Confirmed','Recovered','Deaths']
@@ -43,7 +45,7 @@ def download_daily(days = [1]):
       print(url)
       request.urlretrieve(url, fpath)
 
-def download_series(types = TYPES):
+def download_series_legacy(types = TYPES):
   """
   Download time series.
   """
@@ -52,6 +54,41 @@ def download_series(types = TYPES):
     url = SERIES.format(branch = BRANCH, type=type)
     print(url)
     request.urlretrieve(url, fpath)
+
+def get_size(confirmed): 
+  return int(np.log(confirmed[-1] + 1) * 10) 
+
+def download_series():
+  URL_FMT = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{}/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_{}_global.csv'
+  BRANCH = 'master'
+  cases = ['confirmed','deaths','recovered']
+  data = {}
+  for c in cases:
+    url = URL_FMT.format(BRANCH, c)
+    print(url)
+    r = requests.get(url)
+    df = pd.read_csv(StringIO(r.text))
+    for idx, row in df.iterrows():
+      if row['Province/State'] != 'nan':
+        name = row['Country/Region']
+      else:
+        name = row['Province/State']
+      d = {}
+      d['name'] = name
+      d['lat'] = row['Lat']
+      d['lon'] = row['Long']
+      days = row.drop(['Province/State','Country/Region','Lat','Long'])
+      values = list(days.values)
+      d[c] = values
+      if c == 'confirmed':
+        d['size'] = get_size(values)
+      if name in data:
+        data[name][c] = values
+      else:
+        data[name] = d
+  fout = os.path.join('resources','World.json')
+  with open(fout,'w') as f:
+    json.dump(data, f)
 
 def download_populations():
   outfile = os.path.join(OUTPUT,'populations.json')
@@ -63,7 +100,6 @@ def download_populations():
 def main():
   os.makedirs(OUTPUT, exist_ok=True)
   download_series()
-  download_google_sheet(AGE_SHEET, AGE_GID, OUTPUT, 'Ages.csv')
   download_populations()
 
 if __name__ == '__main__':
