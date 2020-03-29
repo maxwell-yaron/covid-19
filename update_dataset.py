@@ -58,14 +58,14 @@ def download_series_legacy(types = TYPES):
 def get_size(confirmed): 
   return int(np.log(confirmed[-1] + 1) * 10) 
 
-def download_series():
+def download_world():
+  print('Downloading world...')
   URL_FMT = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{}/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_{}_global.csv'
   BRANCH = 'master'
   cases = ['confirmed','deaths','recovered']
   data = {}
   for c in cases:
     url = URL_FMT.format(BRANCH, c)
-    print(url)
     r = requests.get(url)
     df = pd.read_csv(StringIO(r.text))
     for idx, row in df.iterrows():
@@ -89,8 +89,39 @@ def download_series():
   fout = os.path.join('resources','World.json')
   with open(fout,'w') as f:
     json.dump(data, f)
+  print(fout)
+
+def download_states():
+  print('Downloading states...')
+  URL = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+  r = requests.get(URL)
+  df = pd.read_csv(StringIO(r.text))
+  with open('resources/state_coords.json', 'r') as f:
+    states = json.load(f)
+  points = {}
+  max_len = 0;
+  for k, v in states.items():
+    data = {'name': k, 'lat': v['lat'], 'lon': v['lon'], 'confirmed':[],'deaths':[],'recovered':[]}
+    for i, row in df.iterrows():
+      if row['state'] == k:
+        data['confirmed'].append(row['cases'])
+        data['deaths'].append(row['deaths'])
+    data['size'] = int(np.log(data['confirmed'][-1]+1) * 10)
+    points[k] = data
+    max_len = max(max_len, len(data['confirmed']))
+
+  # Backfill data
+  for k, v in points.items():
+    while len(v['confirmed']) < max_len:
+      v['confirmed'].insert(0,0)
+      v['deaths'].insert(0,0)
+  outfile = 'resources/States.json'
+  with open(outfile, 'w') as f:
+    json.dump(points,f)
+  print(outfile)
 
 def download_populations():
+  print('Downloading populations...')
   outfile = os.path.join(OUTPUT,'populations.json')
   d = get_populations()
   with open(outfile, 'w') as f:
@@ -99,8 +130,9 @@ def download_populations():
 
 def main():
   os.makedirs(OUTPUT, exist_ok=True)
-  download_series()
+  download_world()
   download_populations()
+  download_states()
 
 if __name__ == '__main__':
   main()

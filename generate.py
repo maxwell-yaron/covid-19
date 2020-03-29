@@ -125,6 +125,12 @@ def get_world_points():
     data = json.load(f)
   return data
 
+def get_state_points():
+  path = os.path.join('resources','States.json')
+  with open(path, 'r') as f:
+    data = json.load(f)
+  return data
+
 def main(argv = sys.argv[1:]):
   parser = argparse.ArgumentParser()
   parser.add_argument('--savepath',type=str,default='docs',help="path to save html dashboard")
@@ -133,7 +139,9 @@ def main(argv = sys.argv[1:]):
   parser.set_defaults(trends=True)
   args = parser.parse_args(argv)
   tpl = load_template()
-  points_dict = get_world_points()
+  world = get_world_points()
+  states = get_state_points()
+  points_dict = {**world, **states}
   fill_populations(points_dict)
   # Calculate trends.
   if args.trends:
@@ -141,7 +149,7 @@ def main(argv = sys.argv[1:]):
   html = tpl.render(points_dict=points_dict, days = get_num_days(points_dict))
   output_file = os.path.join(args.savepath,'index.html')
   save_html(output_file, html)
-  cases = get_total(points_dict)
+  cases = get_total(world)
   print('Saved: {}'.format(output_file))
   print('Total cases: {}'.format(cases))
 
