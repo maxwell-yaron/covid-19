@@ -53,35 +53,37 @@ std::vector<int> derive(const std::vector<int>& nums) {
 }
 
 struct SIRCostFunctor {
-  SIRCostFunctor(const double& s,
-                 const double& i,
+  SIRCostFunctor(const double& i,
+                 const double& r,
                  const double& ds,
                  const double& di,
                  const double& dr) :
-    s_(s),
     i_(i),
+    r_(r),
     ds_(ds),
     di_(di),
     dr_(dr) {}
   template<typename T>
-  bool operator()(const T* const ki, const T* const kr, T* residuals) const {
+  bool operator()(const T* const s0, const T* const ki, const T* const kr, T* residuals) const {
     // SIR
     /*
     S' = -ki * S * I
     I' = ki * S * I - kr * I
     R' = kr * I
     */
-    T s_p = -T(*ki) * T(s_) * T(i_);
-    T i_p = T(*ki) * T(s_) * T(i_) - T(*kr) * T(i_);
+    T s = T(*s0) - i_ - r_;
+    T s_p = -T(*ki) * T(s) * T(i_);
+    T i_p = T(*ki) * T(s) * T(i_) - T(*kr) * T(i_);
     T r_p = T(*kr) * T(i_);
-    residuals[0] = s_p*s_p - T(ds_)*T(ds_);
-    residuals[1] = i_p*i_p - T(di_)*T(di_);
-    residuals[2] = r_p*r_p - T(dr_)*T(dr_);
+
+    residuals[0] = s_p - T(ds_);
+    residuals[1] = i_p - T(di_);
+    residuals[2] = r_p - T(dr_);
     return true;
   }
   private:
-    const double s_;
     const double i_;
+    const double r_;
     const double ds_;
     const double di_;
     const double dr_;
@@ -100,27 +102,31 @@ void stripToSize(std::vector<int>& cases, size_t size) {
 }
 
 bool runOptimization(
+    const std::vector<int>& confirmed,
+    const std::vector<int>& deaths,
+    const std::vector<int>& recovered,
     const std::vector<int>& d_conf,
     const std::vector<int>& d_deaths,
     const std::vector<int>& d_recovered,
-    double s,
-    double i,
+    double* s0,
     double* ki,
     double* kr) {
   ceres::Problem problem;
   for (size_t j = 0; j < d_conf.size(); ++j) {
     double dr = d_recovered[j] + d_deaths[j];
-    double ds = d_conf[j];
-    double di = ds - dr;
+    double di = d_conf[j] - dr;
+    double ds = -d_conf[j];
+    double removed = deaths[j+1] + recovered[j+1];
+    double infected = confirmed[j+1] - removed;
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<SIRCostFunctor, 3, 1, 1>(new SIRCostFunctor(s,i,ds,di,dr)), nullptr, ki, kr);
-    s -= ds;
-    i += di;
+        new ceres::AutoDiffCostFunction<SIRCostFunctor, 3, 1, 1, 1>(new SIRCostFunctor(infected, removed,ds,di,dr)), nullptr, s0, ki, kr);
   }
+  problem.SetParameterLowerBound(s0,0,0);
+  problem.SetParameterLowerBound(ki,0,0);
+  problem.SetParameterLowerBound(kr,0,0);
   ceres::Solver::Summary summary;
   ceres::Solver::Options opts;
   opts.max_num_iterations = 1000;
-  opts.linear_solver_type = ceres::DENSE_QR;
   opts.num_threads = 4;
   ceres::Solve(opts, &problem, &summary);
   VLOG(2) << summary.FullReport();
@@ -150,9 +156,10 @@ int main(int argc, char** argv) {
   VLOG(1) << "Recovered': " << dr;
   double ki = 0.1;
   double kr = 0.1;
+  double s0 = FLAGS_population;
   int r0 = d[0]+r[0];
   int i0 = c[0]-r[0];
-  runOptimization(dc,dd,dr,FLAGS_population,i0,&ki,&kr);
-  std::cout << toJson(FLAGS_population,ki,kr,i0,r0) << std::endl;
+  runOptimization(c,d,r,dc,dd,dr,&s0,&ki,&kr);
+  std::cout << toJson(s0,ki,kr,i0,r0) << std::endl;
   return 0;
 }

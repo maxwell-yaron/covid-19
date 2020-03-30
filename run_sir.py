@@ -7,6 +7,12 @@ import sys
 import subprocess as sp
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime, timedelta
+
+def get_peak_date(days):
+  d = datetime.strptime('01-22-2020','%m-%d-%Y')
+  end = d + timedelta(days=int(days))
+  return end.strftime('%m-%d-%Y')
 
 def fill_populations(l):
   path = os.path.join('resources', 'populations.json')
@@ -25,7 +31,7 @@ def load_data():
     data = json.load(f)
   return data
 
-def run_sir(data, trim, pop):
+def run_sir(data, trim, pop, extra = []):
   c = [str(i) for i in data['confirmed']]
   d = [str(i) for i in data['deaths']]
   r = [str(i) for i in data['recovered']]
@@ -33,8 +39,7 @@ def run_sir(data, trim, pop):
     raise ValueError("Array lengths are not the same")
   flags = [
     '--alsologtostderr',
-    '--v=2',
-    ]
+    ] + extra
   cmd_fmt = '{bin} --confirmed {c} --deaths {d} --recovered {r} --population {p} --trim {t} {flags}'
   cmd = cmd_fmt.format(
       bin='./sir_model',
@@ -47,9 +52,12 @@ def run_sir(data, trim, pop):
   out = sp.check_output(cmd.split())
   return out
 
-def plot_sir(s, ki, kr, i0 = 1, r0 = 0, days = 0):
+def plot_sir(s, ki, kr, i0 = 1, r0 = 0, days = None):
   i0 = max(i0,1)
-  t = days
+  if days is None:
+    t = 365
+  else:
+    t = days
   i = i0
   r = r0
   sp = 0
@@ -68,18 +76,16 @@ def plot_sir(s, ki, kr, i0 = 1, r0 = 0, days = 0):
     s += sp
     i += ip
     r += rp
-  print('peak: {}'.format(np.argmax(inf)))
+  print('peak: {}'.format(get_peak_date(np.argmax(inf))))
   plt.plot(inf)
   plt.plot(rem)
 
-def plot_curr(pop, data):
+def plot_curr(data):
   c = np.array(data['confirmed'])
   d = np.array(data['deaths'])
   r = np.array(data['recovered'])
   rem = d + r;
-  sus = [pop - i for i in rem]
   inf = c - rem;
-  print(inf[-1])
   plt.figure(1)
   plt.plot(rem)
   plt.plot(inf)
@@ -88,21 +94,23 @@ def main(argv=sys.argv[1:]):
   parser = argparse.ArgumentParser()
   parser.add_argument('--region',required=True)
   parser.add_argument('--trim',type=int, default=0)
-  parser.add_argument('--percent',type=float, default=1.0)
-  parser.add_argument('--population',type=float)
+  parser.add_argument('--flags',type=str, default="")
+  parser.add_argument('--clip_days',type=bool, default=False)
   args = parser.parse_args(argv)
   data = load_data()
   fill_populations(data)
   r = data[args.region]
   conf = r['confirmed'][-1]
-  days = len(r['confirmed'])
-  pop = int(r['population']*args.percent)
-  sir = run_sir(r, args.trim, pop)
+  if args.clip_days:
+    days = len(r['confirmed'])
+  else:
+    days = None
+  sir = run_sir(r, args.trim, r['population'], args.flags.split(','))
   out = json.loads(sir)
   print(out)
   plt.figure(0)
   plot_sir(out['population'],out['ki'],out['kr'],out['i0'],out['r0'], days)
-  plot_curr(100000, r)
+  plot_curr(r)
   plt.show()
 
 if __name__ == '__main__':

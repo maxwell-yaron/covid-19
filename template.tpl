@@ -97,16 +97,6 @@
         height: 0;
       }
 
-      #sliderDiv {
-        position: absolute;
-        z-index: 1;
-        bottom: 0;
-        border: 1px solid black;
-        background-color: #FEFEFE;
-        height: 50px;
-        width: 100%;
-      }
-
       table, td, tr, th {
         border: 1px solid #EEEEEE;
         border-collapse: collapse;
@@ -253,18 +243,7 @@
           "esri/views/MapView",
           "esri/Graphic",
           "esri/layers/GraphicsLayer",
-          "esri/widgets/Slider",
-      ], function(Map, MapView, Graphic, GraphicsLayer, Slider) {
-      var slider = new Slider({
-        container: "sliderDiv",
-        min: 0,
-        max: {{ days - 1 }},
-        values: [{{ days }}],
-        steps: 1,
-        snapOnClickEnabled: true,
-        labelsVisible: true,
-        rangeLabelsVisible: true
-      });
+      ], function(Map, MapView, Graphic, GraphicsLayer) {
       var map = new Map({
         basemap: "gray-vector",
       });
@@ -302,6 +281,7 @@
             log_terms: point['log_terms'],
             growth_factor: point['growth'],
             population: point['population'],
+            counties: point['counties'],
           },
         }));
       }
@@ -318,14 +298,6 @@
       });
       view.on("drag", function(evt) {
           closeDiv('popupDiv');
-      });
-      slider.on("thumb-change", function(evt) {
-          SLIDER_POS = evt.value;
-          updateBubbles(graphics);
-      });
-      slider.on("thumb-drag", function(evt) {
-          SLIDER_POS = evt.value;
-          updateBubbles(graphics);
       });
       function getGraphic(r) {
         var graphic = r.results[0].graphic;
@@ -392,7 +364,6 @@
       if (ENABLE_EXP) {
         var project = parseInt(document.getElementById('projection').value)
         if(data.exp_terms.length == 3) {
-          console.log(data.exp_terms);
           var y = exponentialProjection(data.exp_terms,data.confirmed.length + project);
           var x = getDates(y);
           var exp = {
@@ -491,6 +462,7 @@
       d2d.innerHTML = daysToDouble(exp_terms, selected_data.confirmed[selected_data.confirmed.length-1]).toFixed(3);
     }
     function updatePlot() {
+      console.log(selected_data);
       showControls('trace-control')
       var data = getPlotData(selected_data);
       var margin = (data.length > 3 ? data[3].x.length : data[0].x.length);
@@ -593,7 +565,6 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
 </head>
 <body>
   <div id="viewDiv"></div>
-  <div id="sliderDiv"></div>
   <div class="plot-container" id="plotDiv">
     <div>
       <a class='tools-btn' onclick="closeDiv('plotDiv',true, false); closeDiv('disableMap')" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
