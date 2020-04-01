@@ -29,6 +29,16 @@
         position: absolute;
         height: 100%;
       }
+      .region {
+        top: 0;
+        left: 0;
+        width: 0;
+        z-index:98;
+        background-color: #393e46;
+        position: absolute;
+        overflow-y: scroll;
+        height: 100%;
+      }
 
       .popup {
         top: 0;
@@ -43,7 +53,7 @@
         border: 1px solid black;
       }
       .tools-btn {
-        font-size: 18px;
+        font-size: 20px;
         cursor: pointer;
         z-index: 99;
         position: absolute;
@@ -182,7 +192,7 @@
         var elem = document.getElementById("warningDiv");
         var text = document.getElementById("warning-text");
         var style = elem.style;
-        style.height = "20px";
+        style.height = "30px";
         text.innerHTML = msg;
       }
       function setTab(evt, type) {
@@ -546,6 +556,35 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
       style.height = "100%";
       update();
     }
+    function openRegion() {
+      console.log(selected_data.counties);
+      if (typeof selected_data.counties !== "undefined") {
+        openDisable()
+        var elem = document.getElementById("regionDiv");
+        var style = elem.style;
+        style.padding="15px";
+        style.width = "auto";
+        style.height = "100%";
+        var tbl = document.getElementById("region_table");
+        // Clear table.
+        tbl.innerHTML = "";
+        tbl.style.margin = "20px";
+        let properties = Object.keys(selected_data.counties).reverse();
+        properties.forEach(function(key){
+          var row = tbl.insertRow(0);
+          row.insertCell(0).innerHTML = key;
+          row.insertCell(1).innerHTML = selected_data.counties[key].confirmed;
+          row.insertCell(2).innerHTML = selected_data.counties[key].deaths;
+        });
+        // Generate header.
+        var hdr = tbl.insertRow(0);
+        hdr.insertCell(0).innerHTML = "<b>Location</b>";
+        hdr.insertCell(1).innerHTML = "<b>Confirmed</b>";
+        hdr.insertCell(2).innerHTML = "<b>Deaths</b>";
+      } else {
+        openWarningGeneric("No subregion data available");
+      }
+    }
     function toggleLog() {
       LOG_SCALE = !LOG_SCALE;
       update();
@@ -565,6 +604,13 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
 </head>
 <body>
   <div id="viewDiv"></div>
+  <div class="region" id="regionDiv">
+    <div>
+      <a class='tools-btn' onclick="closeDiv('regionDiv',true,false); closeDiv('disableMap')" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
+    </div>
+    <table id="region_table">
+    </table>
+  </div>
   <div class="plot-container" id="plotDiv">
     <div>
       <a class='tools-btn' onclick="closeDiv('plotDiv',true, false); closeDiv('disableMap')" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
@@ -622,7 +668,10 @@ title: "Growth rate for: " + selected_data.name + " - (Population: " + selected_
       <a class='tools-btn' onclick="closeDiv('popupDiv')" style="right:5px;top:5px"><i class="fa fa-window-close"></i></a>
     </div>
     <div id='plt-btn'>
-      <a class='tools-btn' onclick="openPlot(); openDisable()" style="right:25px;top:5px"><i class="fa fa-bar-chart"></i></a>
+      <a class='tools-btn' onclick="openPlot(); openDisable()" style="right:30px;top:5px"><i class="fa fa-bar-chart"></i></a>
+    </div>
+    <div id='plt-btn'>
+      <a class='tools-btn' onclick="openRegion()" style="right:60px;top:5px"><i class="fa fa-map-marker"></i></a>
     </div>
     <span style="font-weight:bold" id="popup-name"></span>
     <br>
