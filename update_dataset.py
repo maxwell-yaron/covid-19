@@ -58,7 +58,7 @@ def download_series_legacy(types = TYPES):
 def get_size(confirmed): 
   return int(np.log(confirmed[-1] + 1) * 5) 
 
-def download_world():
+def download_countries():
   print('Downloading world...')
   URL_FMT = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{}/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_{}_global.csv'
   BRANCH = 'master'
@@ -86,9 +86,40 @@ def download_world():
         data[name][c] = values
       else:
         data[name] = d
-  fout = os.path.join('resources','World.json')
+  fout = os.path.join('resources','Countries.json')
   with open(fout,'w') as f:
     json.dump(data, f)
+  print(fout)
+
+def world_point():
+  fout = os.path.join('resources','Countries.json')
+  with open(fout,'r') as f:
+    data = json.load(f)
+  conf = None
+  rec = None
+  death = None
+  for k,v in data.items():
+    if conf is None:
+      conf = np.zeros(len(v['confirmed']))
+      rec = np.zeros(len(v['confirmed']))
+      death = np.zeros(len(v['confirmed']))
+    conf+=np.array(v['confirmed'])
+    rec+=np.array(v['recovered'])
+    death+=np.array(v['deaths'])
+  d = {
+    'World':{
+      'name': 'World',
+      'confirmed':conf.tolist(),
+      'deaths':death.tolist(),
+      'recovered':rec.tolist(),
+      'size':get_size(conf),
+      'lat': -3.3,
+      'lon': -113.6,
+    }
+  }
+  fout = os.path.join('resources','World.json')
+  with open(fout,'w') as f:
+    json.dump(d, f)
   print(fout)
 
 def download_counties():
@@ -156,7 +187,8 @@ def download_populations():
 
 def main():
   os.makedirs(OUTPUT, exist_ok=True)
-  download_world()
+  download_countries()
+  world_point()
   download_populations()
   download_states()
 

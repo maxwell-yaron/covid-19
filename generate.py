@@ -119,8 +119,14 @@ def fill_populations(l):
     except:
       v['population'] = 'N/A'
 
-def get_world_points():
+def get_world_point():
   path = os.path.join('resources','World.json')
+  with open(path, 'r') as f:
+    data = json.load(f)
+  return data
+
+def get_country_points():
+  path = os.path.join('resources','Countries.json')
   with open(path, 'r') as f:
     data = json.load(f)
   return data
@@ -139,9 +145,10 @@ def main(argv = sys.argv[1:]):
   parser.set_defaults(trends=True)
   args = parser.parse_args(argv)
   tpl = load_template()
-  world = get_world_points()
+  countries = get_country_points()
   states = get_state_points()
-  points_dict = {**world, **states}
+  world = get_world_point()
+  points_dict = {**countries, **states, **world}
   fill_populations(points_dict)
   # Calculate trends.
   if args.trends:
@@ -149,7 +156,7 @@ def main(argv = sys.argv[1:]):
   html = tpl.render(points_dict=points_dict, days = get_num_days(points_dict))
   output_file = os.path.join(args.savepath,'index.html')
   save_html(output_file, html)
-  cases = get_total(world)
+  cases = get_total(countries)
   print('Saved: {}'.format(output_file))
   print('Total cases: {}'.format(cases))
 
