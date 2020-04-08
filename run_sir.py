@@ -26,7 +26,7 @@ def fill_populations(l):
       v['population'] = 'N/A'
 
 def load_data():
-  path = os.path.join('resources','World.json')
+  path = os.path.join('resources','Countries.json')
   with open(path, 'r') as f:
     data = json.load(f)
   return data
